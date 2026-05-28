@@ -12,6 +12,8 @@ from copy import copy
 from openpyxl import load_workbook
 import win32com.client
 import logging
+from pathlib import Path
+import sys
 
 
 # ================== 配置区域 ==================
@@ -35,7 +37,7 @@ EXCEL_PAIRS = [
 
 
 # 3. 截图配置
-SCREENSHOT = r"C:\Users\0274076\Desktop\效能表和温湿度表(8点,12点,16点)\Excel_chart_delivery_URL"
+SCREENSHOT = Path(sys.executable).parent / "Excel_chart_delivery_URL"
 
 FILES = [
     {"file": fr"{BASE_DIR}\效能表,温湿度表,fileserver表\acftest效能统计.xlsx", "sheet": "Sheet1", "output": fr"{SCREENSHOT}\screenshot_acftest.png", "title_rows": "29:30"},
@@ -391,6 +393,14 @@ def get_all_images(directory):
 
 def process_shots():
     logger.info(f"开始扫描目录: {SCREENSHOT}")
+    try:
+    # 若没有目录则创建
+        os.makedirs(SCREENSHOT, exist_ok=True)
+        logger.info(f"截图保存目录已就绪: {SCREENSHOT}")
+    except Exception as e:
+        logger.error(f"无法创建截图目录 '{SCREENSHOT}'，原因: {e}")
+        raise
+
     all_images = get_all_images(SCREENSHOT)
 
     if not all_images:

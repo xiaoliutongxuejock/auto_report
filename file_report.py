@@ -12,33 +12,44 @@ import sys
 import logging
 import requests
 import base64
+import subprocess
+import os
+from datetime import date
 
-
-base_path = Path(r'S:\04.FA\03.CIM\09.个人文件\刘欢\auto_reporter') #根目录
-source_file = base_path / "FileServer空间增长记录" / "fileserver_temp_20260531.csv" #源文件
+#================配置区==================
+#1.文件路径
+base_path = Path(r'D:\刘欢_勿删\auto_report') #根目录
+folder = base_path / "FileServer空间增长记录（10点）" #CSV文件夹路径
+#source_file = None  #待处理的源文件，初始值为 None，后续通过 find_daily_file 函数动态查找
+source_file = base_path / "FileServer空间增长记录（10点）" / "fileserver_temp_20260603.csv" #测试用固定文件路径
 target_file = base_path / "效能表,温湿度表,fileserver表" / "fileserver.xlsx" #待处理的目标文件
 
 title_rows = [18, 19]   #需要导出的标题行，可以根据实际情况调整，如果没有标题行可以设置为 None 或空列表
 
-#日志路径
+#2.日志路径
 log_path = base_path / "logs"
 log_path.mkdir(exist_ok=True)
 
-#2.脚本路径
+#3.脚本路径
+# 设置控制台编码为 UTF-8，避免中文路径乱码
+sys.stdout.reconfigure(encoding='utf-8')
+SCRIPT_1 = r"D:\刘欢_勿删\auto_report\FileServer空间增长记录（10点）\OFF盘连接报错时清除注册表.bat"
+SCRIPT_2 = r"D:\刘欢_勿删\auto_report\FileServer空间增长记录（10点）\只需要点它.bat"
 
-#3.截图配置  提前创建输出根目录，避免后续路径报错
+
+#4.截图配置  提前创建输出根目录，避免后续路径报错
 output_root = base_path / 'screenshots'
 output_root.mkdir(parents=True, exist_ok=True)
 output_path = output_root / "report_file.png"  #图片输出目录
 #测试
 # output_root = Path(__file__).parent / 'screenshots'
 # output_root.mkdir(exist_ok=True)
-output_path = output_root / "report_file.png"  #图片输出目录
-#4.企业微信配置
+#output_path = output_root / "report_file.png"  #图片输出目录
+#5.企业微信配置
 WEBHOOK_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=22823db5-535b-427c-b61f-502d5aa9e35c"
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 
-#5.日志配置
+#6.日志配置
 log_file_name = log_path / f'report_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
 logging.basicConfig(
     level=logging.INFO,
@@ -52,16 +63,48 @@ logger = logging.getLogger(__name__)
 
 #=================配置区结束==================
 
+def run_scripts():
+    """运行外部脚本，获取最新数据"""
+    try:
+        logger.info(f"正在运行脚本: {SCRIPT_1}，进行提权")
+        # 原 bug: f-string 中 \a 被转义为响铃字符 (\x07)，要用 raw string 拼接
+        subprocess.run(r'runas /user:czhkc\administrator /savecred ' + SCRIPT_1, shell=True)
+        time.sleep(10)  # 等待提权脚本执行完成，实际时间可根据情况调整
+        logger.info(f"脚本 {SCRIPT_1} 执行完成。")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"运行脚本 {SCRIPT_1} 失败: {e}")
+        sys.exit(1)
+
+    try:
+        logger.info(f"正在运行脚本: {SCRIPT_2}，以准备数据...")
+        subprocess.run(r'cmd /c start "" ' + SCRIPT_2, shell=True)
+        time.sleep(60)  # 等待数据准备脚本执行完成，实际时间可根据情况调整
+        logger.info(f"脚本 {SCRIPT_2} 执行完成。")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"运行脚本 {SCRIPT_2} 失败: {e}")
+        sys.exit(1)
+
+def find_daily_file(folder, prefix="fileserver_temp"):
+    """在指定文件夹中匹配当天 CSV 文件，返回文件名，未找到返回 None。"""
+    today_str = date.today().strftime("%Y%m%d")
+    source_file_name = f"{prefix}_{today_str}.csv"
+    for f in os.listdir(folder):
+        if f == source_file_name:
+            logger.info(f"找到当天文件: {f}")
+            return folder / f
+    logger.error(f"未找到当天文件: {source_file_name}，请检查文件是否生成或命名是否正确,程序退出")
+    sys.exit(1)
 
 #读取源文件最后一行数据，导入到目标文件最后一行
 def process_excels(excel):
+    logging.info(f"准备处理 Excel 文件，源文件: {source_file}, 目标文件: {target_file}")
     #检查文件是否存在
     if not source_file.exists():
         logger.error(f"源文件 {source_file} 不存在，请检查路径是否正确。")
-        sys.exit()
+        sys.exit(1)
     if not target_file.exists():
         logger.error(f"目标文件{target_file}不存在，请检查路径是否正确。")
-        sys.exit()
+        sys.exit(1)
 
     #获取source_excel最后一行数据
     wb_source = None
@@ -85,7 +128,7 @@ def process_excels(excel):
         )
     except Exception as e:
         logger.error(f"[ERROR]获取 Excel 最后一行失败: {e}")
-        return None
+        sys.exit(1)
     finally:
         if wb_source:
             wb_source.Close(SaveChanges=False)
@@ -138,7 +181,7 @@ def capture_range_as_png(ws,wb,start_row,end_row,end_col_letter,suffix,temp_dir)
     chat.Paste()
     data_png_path = temp_dir / f"capture_{suffix}.png"
     chat.Export(str(data_png_path), FilterName="PNG")
-    time.sleep(10)  # 增加短暂延迟，确保文件完全写入
+    time.sleep(10)  # 增加延迟，确保文件完全写入
     chart_obj.Delete()
     tmp_ws.Delete()
 
@@ -328,7 +371,13 @@ def send_image_to_wechat(image_path,webhook_url):
 
 
 if __name__ == "__main__":
-    #1.处理 Excel 数据并导出视图
+    
+    #1.执行脚本获取最新数据
+    #run_scripts()
+
+    #在这里查找文件，并把结果赋值给顶部的 source_file变量，供后续函数使用
+    # source_file = find_daily_file(folder)
+    #2.处理 Excel 数据并导出视图
     excel = None
     try:
         excel = win32com.client.Dispatch("Excel.Application")
@@ -348,7 +397,7 @@ if __name__ == "__main__":
             excel.Quit()
             del excel
             logger.info("Excel 应用已关闭。")
-    #2.推送到企业微信
+    #3.推送到企业微信
     report_time = get_report_time()
     report_text = f"呈长官：{report_time} Fileserver剩余空间及使用率如下"
     send_text_to_wechat(report_text, WEBHOOK_URL)

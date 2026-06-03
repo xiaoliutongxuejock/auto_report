@@ -1591,6 +1591,10 @@
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\win32com\\client\\util.py',
    'PYMODULE'),
+  ('win32com.gen_py',
+   'D:\\Program '
+   'Files\\Python3.10\\lib\\site-packages\\win32com\\gen_py\\__init__.py',
+   'PYMODULE'),
   ('win32com.server',
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\win32com\\server\\__init__.py',

@@ -84,17 +84,14 @@
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\pywin32_system32\\pythoncom310.dll',
    'BINARY'),
-  ('numpy.libs\\msvcp140-263139962577ecda4cd9469ca360a746.dll',
-   'D:\\Program '
-   'Files\\Python3.10\\lib\\site-packages\\numpy.libs\\msvcp140-263139962577ecda4cd9469ca360a746.dll',
-   'BINARY'),
   ('numpy.libs\\libscipy_openblas64_-13e2df515630b4a41f92893938845698.dll',
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\numpy.libs\\libscipy_openblas64_-13e2df515630b4a41f92893938845698.dll',
    'BINARY'),
-  ('select.pyd',
-   'D:\\Program Files\\Python3.10\\DLLs\\select.pyd',
-   'EXTENSION'),
+  ('numpy.libs\\msvcp140-263139962577ecda4cd9469ca360a746.dll',
+   'D:\\Program '
+   'Files\\Python3.10\\lib\\site-packages\\numpy.libs\\msvcp140-263139962577ecda4cd9469ca360a746.dll',
+   'BINARY'),
   ('_multiprocessing.pyd',
    'D:\\Program Files\\Python3.10\\DLLs\\_multiprocessing.pyd',
    'EXTENSION'),
@@ -113,6 +110,9 @@
    'EXTENSION'),
   ('_socket.pyd',
    'D:\\Program Files\\Python3.10\\DLLs\\_socket.pyd',
+   'EXTENSION'),
+  ('select.pyd',
+   'D:\\Program Files\\Python3.10\\DLLs\\select.pyd',
    'EXTENSION'),
   ('_ctypes.pyd',
    'D:\\Program Files\\Python3.10\\DLLs\\_ctypes.pyd',
@@ -256,19 +256,11 @@
   ('Pythonwin\\mfc140u.dll',
    'D:\\Program Files\\Python3.10\\lib\\site-packages\\Pythonwin\\mfc140u.dll',
    'BINARY'),
-  ('certifi\\py.typed',
-   'D:\\Program Files\\Python3.10\\lib\\site-packages\\certifi\\py.typed',
-   'DATA'),
   ('certifi\\cacert.pem',
    'D:\\Program Files\\Python3.10\\lib\\site-packages\\certifi\\cacert.pem',
    'DATA'),
-  ('numpy-2.2.6.dist-info\\METADATA',
-   'D:\\Program '
-   'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\METADATA',
-   'DATA'),
-  ('numpy-2.2.6.dist-info\\RECORD',
-   'D:\\Program '
-   'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\RECORD',
+  ('certifi\\py.typed',
+   'D:\\Program Files\\Python3.10\\lib\\site-packages\\certifi\\py.typed',
    'DATA'),
   ('numpy-2.2.6.dist-info\\DELVEWHEEL',
    'D:\\Program '
@@ -278,17 +270,25 @@
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\INSTALLER',
    'DATA'),
+  ('numpy-2.2.6.dist-info\\WHEEL',
+   'D:\\Program '
+   'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\WHEEL',
+   'DATA'),
   ('numpy-2.2.6.dist-info\\entry_points.txt',
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\entry_points.txt',
    'DATA'),
+  ('numpy-2.2.6.dist-info\\METADATA',
+   'D:\\Program '
+   'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\METADATA',
+   'DATA'),
+  ('numpy-2.2.6.dist-info\\RECORD',
+   'D:\\Program '
+   'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\RECORD',
+   'DATA'),
   ('numpy-2.2.6.dist-info\\LICENSE.txt',
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\LICENSE.txt',
-   'DATA'),
-  ('numpy-2.2.6.dist-info\\WHEEL',
-   'D:\\Program '
-   'Files\\Python3.10\\lib\\site-packages\\numpy-2.2.6.dist-info\\WHEEL',
    'DATA'),
   ('base_library.zip',
    'D:\\python\\auto_report\\build\\file_report\\base_library.zip',
@@ -296,7 +296,7 @@
  [],
  False,
  False,
- 1780371156,
+ 1780484466,
  [('run.exe',
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',

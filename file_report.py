@@ -19,9 +19,10 @@ from datetime import date
 #================配置区==================
 #1.文件路径
 base_path = Path(r'D:\刘欢_勿删\auto_report') #根目录
-folder = base_path / "FileServer空间增长记录（10点）" #CSV文件夹路径
-#source_file = None  #待处理的源文件，初始值为 None，后续通过 find_daily_file 函数动态查找
-source_file = base_path / "FileServer空间增长记录（10点）" / "fileserver_temp_20260603.csv" #测试用固定文件路径
+folder = base_path / "FileServer空间增长记录" #CSV文件夹路径
+source_file = None  #待处理的源文件，初始值为 None，后续通过 find_daily_file 函数动态查找
+#测试路径
+#source_file = base_path / "FileServer空间增长记录" / "fileserver_temp_20260531.csv" #测试用固定文件路径
 target_file = base_path / "效能表,温湿度表,fileserver表" / "fileserver.xlsx" #待处理的目标文件
 
 title_rows = [18, 19]   #需要导出的标题行，可以根据实际情况调整，如果没有标题行可以设置为 None 或空列表
@@ -33,8 +34,8 @@ log_path.mkdir(exist_ok=True)
 #3.脚本路径
 # 设置控制台编码为 UTF-8，避免中文路径乱码
 sys.stdout.reconfigure(encoding='utf-8')
-SCRIPT_1 = r"D:\刘欢_勿删\auto_report\FileServer空间增长记录（10点）\OFF盘连接报错时清除注册表.bat"
-SCRIPT_2 = r"D:\刘欢_勿删\auto_report\FileServer空间增长记录（10点）\只需要点它.bat"
+SCRIPT_1 = r"D:\刘欢_勿删\auto_report\FileServer空间增长记录\OFF盘连接报错时清除注册表.bat"
+SCRIPT_2 = r"D:\刘欢_勿删\auto_report\FileServer空间增长记录\只需要点它.bat"
 
 
 #4.截图配置  提前创建输出根目录，避免后续路径报错
@@ -372,10 +373,10 @@ def send_image_to_wechat(image_path,webhook_url):
 if __name__ == "__main__":
     
     #1.执行脚本获取最新数据
-    #run_scripts()
+    run_scripts()
 
     #在这里查找文件，并把结果赋值给顶部的 source_file变量，供后续函数使用
-    # source_file = find_daily_file(folder)
+    source_file = find_daily_file(folder)
     #2.处理 Excel 数据并导出视图
     excel = None
     try:

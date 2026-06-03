@@ -1624,6 +1624,10 @@
   ('win32con',
    'D:\\Program Files\\Python3.10\\lib\\site-packages\\win32\\lib\\win32con.py',
    'PYMODULE'),
+  ('win32timezone',
+   'D:\\Program '
+   'Files\\Python3.10\\lib\\site-packages\\win32\\lib\\win32timezone.py',
+   'PYMODULE'),
   ('win32traceutil',
    'D:\\Program '
    'Files\\Python3.10\\lib\\site-packages\\win32\\lib\\win32traceutil.py',

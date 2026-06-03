@@ -97,7 +97,6 @@ def find_daily_file(folder, prefix="fileserver_temp"):
 
 #读取源文件最后一行数据，导入到目标文件最后一行
 def process_excels(excel):
-    logging.info(f"准备处理 Excel 文件，源文件: {source_file}, 目标文件: {target_file}")
     #检查文件是否存在
     if not source_file.exists():
         logger.error(f"源文件 {source_file} 不存在，请检查路径是否正确。")

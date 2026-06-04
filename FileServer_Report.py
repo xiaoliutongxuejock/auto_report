@@ -5,7 +5,7 @@ import hashlib
 import shutil
 from PIL import Image
 import time
-import win32com.client
+import win32com.client  
 from datetime import datetime
 from pathlib import Path
 import sys
@@ -309,7 +309,7 @@ def export_excel_view(excel,output_path,title_rows=None):
 #===========企业微信推送===============
 def get_report_time():
     """获取报告时间字符串，格式为 YYYY-MM-DD HH:MM:SS"""
-    return datetime.now().strftime("%Y-%m-%d "+"10:00:00")
+    return datetime.now().strftime("%Y/%m/%d "+"10:00")
 
 def send_text_to_wechat(text,webhook_url):
     """发送文本消息到企业微信"""

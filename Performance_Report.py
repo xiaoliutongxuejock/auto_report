@@ -18,12 +18,13 @@ import sys
 
 # ================== 配置区域 ==================
 
-# 1. 需要先运行的脚本路径
+# 1. 根目录配置：所有脚本、Excel 文件、截图等都基于这个路径，修改这里即可适配不同环境
 BASE_DIR = r"D:\刘欢_勿删\auto_report"
 
 
 SCRIPT_1 = fr'"{BASE_DIR}\FileServer连通性脚本\1_FP2FileServer-REconnect.bat"'
-SCRIPT_2 = fr'"{BASE_DIR}\acf_cf_cell_excel_stat\bat\startup.bat"'
+SCRIPT_2 = fr'"{BASE_DIR}\acf_cf_cell_excel_stat\dynamic-config-file\reset_coooool.exe"'
+SCRIPT_3 = fr'"{BASE_DIR}\acf_cf_cell_excel_stat\bat\startup.bat"'
 SCRIPT_4 = fr'"{BASE_DIR}\temperature_excel_stat\bat\startup.bat"'
 
 # 2. Excel 文件配置：{源文件: 目标文件}
@@ -52,7 +53,7 @@ WEBHOOK_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=22823db5-535
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 
 # 5.日志配置
-log_path = BASE_DIR / "logs"
+log_path = Path(r"D:\刘欢_勿删\auto_report\logs")
 log_path.mkdir(exist_ok=True)
 log_filename = log_path / f"excel_process_{datetime.now().strftime('%Y%m%d_%H%M')}.log"
 logging.basicConfig(
@@ -73,8 +74,12 @@ def run_scripts():
     subprocess.run(f"start cmd /c call {SCRIPT_1}", shell=True)
     time.sleep(30)
 
-    logger.info(f"正在执行脚本: {SCRIPT_2}")
+    logger.info(f"正在执行脚本: {SCRIPT_2},重新获取凭证")
     subprocess.run(f"start cmd /c {SCRIPT_2}", shell=True)
+    time.sleep(10)
+
+    logger.info(f"正在执行脚本: {SCRIPT_3}")
+    subprocess.run(f"start cmd /c {SCRIPT_3}", shell=True)
     logger.info("脚本执行完毕，acf、cf、cell等待文件写入磁盘...")
     time.sleep(60)
 
@@ -387,7 +392,7 @@ def get_all_images(directory):
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if d != "_temp_parts"]
         for file in files:
-            if os.path.splitext(file)[1].lower() in IMAGE_EXTENSIONS:
+            if os.path.splitext(file)[1].lower() in IMAGE_EXTENSIONS and file != "report_file.png":
                 image_list.append(os.path.join(root, file))
 
     return image_list

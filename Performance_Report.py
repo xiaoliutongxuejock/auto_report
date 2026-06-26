@@ -316,7 +316,8 @@ def take_screenshots():
         excel = None
         try:
             excel = win32com.client.Dispatch("Excel.Application")
-            excel.Visible = False
+            excel.Visible = True    #######################重要，没有可视化则Excel 在 Visible = False（不可见/无窗口）模式下，COM 的 Chart.Export()
+                                    #######################对不在当前渲染缓冲区内的图表会导出失败或空白。
             excel.DisplayAlerts = False
             export_excel_view(
                 excel,

@@ -3,13 +3,10 @@ import time
 import shutil
 from datetime import datetime
 import subprocess
-import pandas as pd
 import requests
 import base64
 import hashlib
 from PIL import Image
-from copy import copy
-from openpyxl import load_workbook
 import win32com.client
 import logging
 from pathlib import Path
@@ -88,18 +85,10 @@ def run_scripts():
     logger.info("脚本执行完毕，等待温湿度文件写入磁盘...")
     time.sleep(60)
 
-    try:
-        excel = win32com.client.GetActiveObject("Excel.Application")
-        logger.info("正在尝试优雅关闭 Excel...")
-        excel.DisplayAlerts = False
-        excel.Quit()
-        logger.info("Excel 已正常关闭。")
-    except Exception:
-        logger.info("未检测到运行的 Excel 或关闭失败，稍后将进行强制清理。")
-        subprocess.run("taskkill /f /im excel.exe /t", shell=True, capture_output=True)
 
 
-def process_excels():
+def process_excels(excel):
+    """使用 COM 将各源文件最后一行数据追加到对应目标文件（参考 FileServer 模式）"""
     for pair in EXCEL_PAIRS:
         src = pair["source"]
         tgt = pair["target"]
@@ -107,56 +96,83 @@ def process_excels():
         if not os.path.exists(src):
             logger.info(f"⚠️ 警告: 源文件不存在 -> {src}")
             continue
+        if not os.path.exists(tgt):
+            logger.info(f"⚠️ 警告: 目标文件不存在 -> {tgt}")
+            continue
 
+        wb_source = None
+        wb_target = None
+        success = False
         try:
-            df_src = pd.read_excel(src)
-            if df_src.empty:
-                logger.info(f"⚠️ 警告: 源文件为空 -> {src}")
+            # --- 读取源文件最后一行 ---
+            wb_source = excel.Workbooks.Open(src)
+            ws_source = wb_source.ActiveSheet
+            last_row_num = ws_source.Cells(ws_source.Rows.Count, 1).End(-4162).Row      # xlUp
+            last_col_num = ws_source.Cells(last_row_num, ws_source.Columns.Count).End(-4159).Column  # xlToLeft
+
+            source_range = ws_source.Range(
+                ws_source.Cells(last_row_num, 1),
+                ws_source.Cells(last_row_num, last_col_num)
+            )
+            row_data = source_range.Value
+            clean_data = [v for v in row_data[0] if v is not None]
+            logger.info(
+                f"读取源文件: {os.path.basename(src)}, 行号: {last_row_num}, "
+                f"列数: {last_col_num}, 有效数据: {clean_data}"
+            )
+
+            if not any(v is not None for v in row_data[0]):
+                logger.info(f"⚠️ 警告: 源文件最后一行全为空 -> {src}")
                 continue
 
-            new_data = df_src.iloc[-1]
-            if os.path.exists(tgt):
-                wb = load_workbook(tgt)
-                ws = wb["Sheet1"]
-                last_row = ws.max_row
-                while not ws[f"A{last_row}"].value:
-                    last_row -= 1
+            # --- 写入目标文件 ---
+            wb_target = excel.Workbooks.Open(tgt)
+            ws_target = wb_target.ActiveSheet
+            last_row_target = ws_target.Cells(ws_target.Rows.Count, 1).End(-4162).Row  # xlUp
+            new_row = last_row_target + 1
+            logger.info(f"目标文件最后一行: {last_row_target}，准备写入第 {new_row} 行（共 {last_col_num} 列）")
 
-                new_row = last_row + 1
-                ws.insert_rows(new_row)
-                max_col = ws.max_column
-                data_len = len(new_data)
-                for col in range(1, max_col + 1):
-                    src_cell = ws.cell(last_row, col)
-                    tgt_cell = ws.cell(new_row, col)
-                    tgt_cell.font = copy(src_cell.font)
-                    tgt_cell.border = copy(src_cell.border)
-                    tgt_cell.fill = copy(src_cell.fill)
-                    tgt_cell.number_format = copy(src_cell.number_format)
-                    tgt_cell.protection = copy(src_cell.protection)
-                    tgt_cell.alignment = copy(src_cell.alignment)
-                    if col <= data_len:
-                        tgt_cell.value = new_data.iloc[col - 1]
-                wb.save(tgt)
-                logger.info(f"{tgt}写入完成")
+            # 一次性写入整行数据（1 次 COM 调用）
+            dest_range = ws_target.Range(
+                ws_target.Cells(new_row, 1),
+                ws_target.Cells(new_row, last_col_num)
+            )
+            dest_range.Value = row_data[0]
+
+            # 复制上一行的格式到新行（参考 FileServer 的 PasteSpecial 方式）
+            ws_target.Rows(last_row_target).Copy()
+            ws_target.Rows(new_row).PasteSpecial(Paste=-4122)  # xlPasteFormats
+            excel.CutCopyMode = False  # 清除剪贴板，避免状态冲突
+
+            success = True
+            logger.info(f"✅ {os.path.basename(tgt)} 写入完成")
 
         except Exception as e:
-            logger.error(f"❌ 处理 Excel 失败: {e}")
+            logger.error(f"❌ 处理 Excel 失败 [{os.path.basename(src)} -> {os.path.basename(tgt)}]: {e}")
+        finally:
+            if wb_source:
+                wb_source.Close(SaveChanges=False)
+            if wb_target:
+                if success:
+                    wb_target.Save()
+                wb_target.Close()
 
 
 # ====================================================================
 # 导出逻辑（Excel COM 直接导出，不依赖屏幕截图，RDP 最小化也能用）
+# 参考 FileServer 模式：函数自行打开/关闭工作簿，自包含管理生命周期
 
 def _capture_range_as_png(ws, wb, start_row, end_row, end_col_letter, suffix, temp_dir):
     """将指定单元格区域导出为裁剪后的 PNG，返回 (路径, 宽, 高)"""
     rng = ws.Range(f"A{start_row}:{end_col_letter}{end_row}")
-    rng.CopyPicture(Appearance=1, Format=2)
 
     # Chart 尺寸匹配 Range 实际宽高，避免画布留白造成图片间有间隙
     rng_w = int(rng.Width)
     rng_h = int(rng.Height)
     tmp_ws = wb.Worksheets.Add()
     chart_obj = tmp_ws.ChartObjects().Add(Left=0, Top=0, Width=rng_w, Height=rng_h)
+    # CopyPicture 必须在 Add 工作表之后、Paste 之前调用，否则切换工作表会清空剪贴板
+    rng.CopyPicture(Appearance=1, Format=2)
     chart_obj.Chart.Paste()
     data_png = os.path.join(temp_dir, f"_{suffix}.png")
     chart_obj.Chart.Export(Filename=data_png, FilterName="PNG")
@@ -176,35 +192,49 @@ def _capture_range_as_png(ws, wb, start_row, end_row, end_col_letter, suffix, te
     return data_png, dw, dh
 
 
-def export_excel_view(excel, output_path, delay, title_rows=None):
-    """导出工作表：冻结区域的图表 + 标题行 + 最后7行数据"""
-    time.sleep(delay)
-    excel.ScreenUpdating = True
-    time.sleep(0.5)
-
+def export_excel_view(excel, file_path, sheet_name, output_path, title_rows=None):
+    """打开工作簿 → 导出图表+标题行+最后7行数据 → 关闭（自包含）"""
+    wb = None
     temp_dir = os.path.join(os.path.dirname(output_path), "_temp_parts")
     os.makedirs(temp_dir, exist_ok=True)
     try:
-        ws = excel.ActiveSheet
-        wb = excel.ActiveWorkbook
+        logger.info(f"\n{'='*50}")
+        logger.info(f"处理: {file_path}")
+
+        wb = excel.Workbooks.Open(file_path)
+        ws = wb.Worksheets(sheet_name)
+        ws.Activate()
+        excel.ActiveWindow.Zoom = 70  # 视图缩放至 70%
+        time.sleep(DELAY)  # 等待 Excel 渲染完成
+        # 滚到底部，确保最后几行数据在可见范围内
+        last_row = ws.Cells(ws.Rows.Count, 1).End(-4162).Row  # xlUp
+        ws.Range(f"A{max(1, last_row - 30)}").Select()
+        time.sleep(DELAY)
+        logger.info(f"滚动至 A{max(1, last_row - 30)} (最后数据行: {last_row})")
+
+        time.sleep(DELAY)
+        excel.ScreenUpdating = True
+        time.sleep(DELAY)
+
         charts = ws.ChartObjects()
         parts = []
 
-        # 1. 导出所有图表（位于冻结区域）
         for i in range(1, charts.Count + 1):
-            co = charts(i)
-            tp = os.path.join(temp_dir, f"_chart_{i}.png")
-            co.Chart.Export(Filename=tp, FilterName="PNG")
-            parts.append({
-                "path": tp,
-                "left": int(co.Left),
-                "top": int(co.Top),
-                "width": int(co.Width),
-                "height": int(co.Height),
-            })
+                co = charts(i)
+                tp = os.path.join(temp_dir, f"_chart_{i}.png")
+                logger.info(f"导出图表 {i}/{charts.Count} "
+                            f"(Left={int(co.Left)} Top={int(co.Top)} "
+                            f"W={int(co.Width)} H={int(co.Height)})")
+                co.Chart.Export(Filename=tp, FilterName="PNG")
+                parts.append({
+                    "path": tp,
+                    "left": int(co.Left),
+                    "top": int(co.Top),
+                    "width": int(co.Width),
+                    "height": int(co.Height),
+                })
 
         # 2. 确定列范围 & 抓取数据区域
-        last_row = ws.Cells(ws.Rows.Count, 1).End(-4162).Row  # xlUp
         if last_row > 0:
             data_start = max(1, last_row - 6)
 
@@ -267,59 +297,44 @@ def export_excel_view(excel, output_path, delay, title_rows=None):
         canvas.save(output_path, "PNG")
         logger.info(f"导出完成: {output_path} ({canvas.size[0]}x{canvas.size[1]})")
 
+    except Exception as e:
+        logger.error(f"[ERROR] 导出 Excel 视图失败 [{file_path}]: {e}")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-
-def process_one(cfg, excel):
-    """处理单个文件：打开 → 导出图表+最后7行数据（RDP最小化也能用）"""
-    file_path = cfg["file"]
-    sheet_name = cfg["sheet"]
-    output_path = cfg["output"]
-
-    logger.info(f"\n{'='*50}")
-    logger.info(f"处理: {file_path}")
-
-    wb = excel.Workbooks.Open(file_path)
-    excel.WindowState = -4137  # xlMaximized
-    ws = wb.Worksheets(sheet_name)
-    ws.Activate()
-
-    # 滚到底部，确保最后几行数据在可见范围内（xlScreen模式需要）
-    last_row = ws.Cells(ws.Rows.Count, 1).End(-4162).Row
-    ws.Range(f"A{max(1, last_row - 30)}").Select()
-    time.sleep(1)
-    logger.info(f"滚动至 A{max(1, last_row - 30)} (最后数据行: {last_row})")
-
-    export_excel_view(excel, output_path, DELAY, cfg.get("title_rows"))
-
-    time.sleep(1)
-    try:
-        wb.Close(SaveChanges=False)
-        logger.info(f"已关闭: {file_path}")
-    except Exception:
-        logger.info(f"关闭时出现警告（不影响结果），继续处理下一个")
-
-
-def main():
-    """主流程：逐个处理 FILES 列表中的每个文件"""
-    excel = win32com.client.Dispatch("Excel.Application")
-    excel.Visible = False
-    excel.DisplayAlerts = False
-
-    try:
-        for cfg in FILES:
+        time.sleep(DELAY)
+        if wb:
             try:
-                process_one(cfg, excel)
-            except Exception as e:
-                logger.warning(f"处理失败: {cfg['file']} — {e}")
-    finally:
+                wb.Close(SaveChanges=False)
+                logger.info(f"已关闭: {file_path}")
+            except Exception:
+                logger.warning(f"关闭文件时出现警告（不影响结果）: {file_path}")
+
+
+def take_screenshots():
+    """每个文件使用独立的 Excel 实例"""
+    for cfg in FILES:
+        excel = None
         try:
-            excel.Quit()
-        except Exception:
-            pass
-        logger.info("\nExcel 已退出，全部截图完成")
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Visible = False
+            excel.DisplayAlerts = False
+            export_excel_view(
+                excel,
+                cfg["file"],
+                cfg["sheet"],
+                cfg["output"],
+                cfg.get("title_rows")
+            )
+        except Exception as e:
+            logger.warning(f"处理失败: {cfg['file']} — {e}")
+        finally:
+            if excel:
+                try:
+                    excel.Quit()
+                except Exception:
+                    pass
+                del excel
+        time.sleep(DELAY)
 
 
 # ===============================================================
@@ -420,7 +435,7 @@ def process_shots():
     for img_path in all_images:
         if send_image_to_wechat(img_path, WEBHOOK_URL):
             success_count += 1
-        time.sleep(1.5)
+        time.sleep(DELAY)
 
     logger.info(f"推送任务结束！共 {len(all_images)} 张，成功 {success_count} 张。")
 
@@ -438,16 +453,36 @@ def get_report_time():
 
 
 if __name__ == "__main__":
-    # 1. 运行脚本
+    # 1. 运行脚本生成数据
     run_scripts()
-    # 2. 处理数据搬运
-    process_excels()
-    # 3. 截图保存
-    main()
-    # 4. 推送图片
+
+    # 2. 清场旧 Excel 进程
+    subprocess.run("taskkill /f /im excel.exe /t", shell=True, capture_output=True)
+    time.sleep(DELAY)
+
+    #2a. 数据搬运（共用 COM 实例，操作轻量）
+    excel = None
+    try:
+        excel = win32com.client.Dispatch("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        process_excels(excel)
+    finally:
+        if excel:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
+            del excel
+
+    # 2b. 截图保存（每个文件独立 COM 实例，图表导出消耗大）
+    take_screenshots()
+
+    #3. 推送图片到企业微信
     report_time = get_report_time()
     report_text = f"呈长官：{report_time} ACFTEST/CFTEST/CELLTEST效能表/机房温湿度表如下"
-
     send_text_to_wechat(report_text, WEBHOOK_URL)
-    time.sleep(1)
+    time.sleep(DELAY)
     process_shots()
+    time.sleep(DELAY)
+    

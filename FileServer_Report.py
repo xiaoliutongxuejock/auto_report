@@ -374,6 +374,13 @@ if __name__ == "__main__":
     
     #1.执行脚本获取最新数据
     run_scripts()
+    #关闭cmd窗口，避免影响后续操作
+    try:
+        subprocess.run("taskkill /f /im cmd.exe", shell=True)
+        logger.info("已关闭所有 cmd.exe 窗口。")
+
+    except Exception as e:
+        logger.error(f"关闭 cmd.exe 窗口时出错：{e}")
 
     #在这里查找文件，并把结果赋值给顶部的 source_file变量，供后续函数使用
     source_file = find_daily_file(folder)
